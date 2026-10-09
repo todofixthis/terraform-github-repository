@@ -365,7 +365,11 @@ test_plan_without_state() {
 test_plan_init_failure() {
   local output
   output=$(STUB_INIT=fail plan_with_stubs "$(new_repo "$project_pattern")")
-  [[ "$output" == *"init failed"* && "$output" == *"exit=7" ]]
+  # The hint must name the infra root: the script runs from the repo root, so
+  # a bare `terraform init -upgrade` would upgrade the wrong lock file
+  [[ "$output" == *"init failed"* && "$output" == *"exit=7" ]] \
+    && [[ "$output" == *"terraform -chdir=infra/github init -upgrade"* ]] \
+    && [[ "$output" == *"terraform -chdir=infra/github providers lock"* ]]
 }
 
 test_plan_init_rewrites_lock() {
@@ -391,7 +395,8 @@ test_plan_posts_new_comment() {
   output=$(STUB_PR=5 plan_with_stubs "$repo")
   [[ "$output" == *"exit=0" ]] \
     && [[ "$(cat "$repo/.stub-log")" == POST* ]] \
-    && [[ "$(cat "$repo/.stub-log.body")" == *"<!-- infra-hash: $(hash_of "$repo") -->"* ]]
+    && [[ "$(cat "$repo/.stub-log.body")" == *"<!-- infra-hash: $(hash_of "$repo") -->"* ]] \
+    && [[ "$(cat "$repo/.stub-log.body")" == "<!-- infra-plan -->"* ]]
 }
 
 test_plan_updates_existing_comment() {

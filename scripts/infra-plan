@@ -103,7 +103,7 @@ run_init() {
     status=$?
   fi
   printf '%s\n' "$output" >&2
-  echo "⚠️ init failed; on a module bump, run \`terraform init -upgrade\` then \`terraform providers lock -platform=darwin_amd64 -platform=darwin_arm64 -platform=linux_amd64 -platform=linux_arm64\`, and commit the lock" >&2
+  echo "⚠️ init failed; on a module or provider bump, run \`terraform -chdir=$infra_dir init -upgrade\` then \`terraform -chdir=$infra_dir providers lock -platform=darwin_amd64 -platform=darwin_arm64 -platform=linux_amd64 -platform=linux_arm64\`, and commit the lock" >&2
   return "$status"
 }
 
