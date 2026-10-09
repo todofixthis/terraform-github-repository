@@ -6,16 +6,19 @@ set -euo pipefail
 repo_root=$(git rev-parse --show-toplevel)
 script="$repo_root/scripts/infra-plan"
 current_branch=$(git symbolic-ref --quiet --short HEAD || true)
+head_sha=$(git rev-parse HEAD)
 needs_plan=""
 
-while read -r local_ref local_sha _remote_ref remote_sha; do
+while read -r local_ref local_sha remote_ref remote_sha; do
   # Deleting a branch pushes no commits to plan
   if [[ "$local_sha" =~ ^0+$ ]]; then
     continue
   fi
-  # The script plans and hashes HEAD, so it can only speak for the checked-out branch
-  if [[ "$local_ref" != "refs/heads/$current_branch" ]]; then
-    echo "⏭️ $local_ref isn't the checked-out branch; skipping its infra plan"
+  # The script plans and hashes HEAD and posts to the checked-out branch's PR,
+  # so it can only speak for a push of HEAD to that branch. Match on the SHA and
+  # remote ref: `git push origin HEAD` sends the literal local ref "HEAD"
+  if [[ "$local_sha" != "$head_sha" || "$remote_ref" != "refs/heads/$current_branch" ]]; then
+    echo "⏭️ $local_ref -> $remote_ref isn't the checked-out branch; skipping its infra plan"
     continue
   fi
   # A new branch has no remote SHA; compare against where it branched from

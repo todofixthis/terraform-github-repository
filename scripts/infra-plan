@@ -126,8 +126,11 @@ rerun_failed_ci() {
   failed=$(gh run list --commit "$sha" --event pull_request --json databaseId,conclusion \
     --jq '[.[] | select(.conclusion == "failure")][0].databaseId // empty')
   if [[ -n "$failed" ]]; then
-    gh run rerun --failed "$failed"
-    echo "✅ reran failed jobs in run $failed"
+    if gh run rerun --failed "$failed"; then
+      echo "✅ reran failed jobs in run $failed"
+    else
+      echo "⚠️ couldn't rerun run $failed; rerun it by hand"
+    fi
   fi
 }
 
@@ -141,7 +144,8 @@ post_comment() {
     echo "⏭️ detached HEAD; comment not posted"
     return 0
   fi
-  if ! pr=$(gh pr view "$branch" --json number --jq .number 2>/dev/null) || [[ -z "$pr" ]]; then
+  # Open PRs only: `gh pr view <branch>` can return a merged or closed one
+  if ! pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty' 2>/dev/null) || [[ -z "$pr" ]]; then
     echo "⏭️ no PR yet; re-run once one exists"
     return 0
   fi

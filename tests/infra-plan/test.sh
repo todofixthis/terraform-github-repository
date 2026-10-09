@@ -80,11 +80,21 @@ log() {
   echo "$*" >> "$STUB_LOG"
 }
 case "$1 $2" in
+  # STUB_PR is an open PR; STUB_PR_CLOSED a newer closed or merged one, which
+  # `gh pr view <branch>` would return but an open-only lookup must not
   "pr view")
-    if [[ -z "${STUB_PR:-}" ]]; then
+    pr=${STUB_PR_CLOSED:-${STUB_PR:-}}
+    if [[ -z "$pr" ]]; then
       exit 1
     fi
-    echo "$STUB_PR"
+    echo "$pr"
+    ;;
+  "pr list")
+    case "$*" in
+      *"--state open"*)
+        echo "${STUB_PR:-}"
+        ;;
+    esac
     ;;
   "run list")
     case "$*" in
@@ -98,6 +108,10 @@ case "$1 $2" in
     ;;
   "run rerun")
     log "RERUN $4"
+    if [[ -n "${STUB_RERUN_FAIL:-}" ]]; then
+      echo "stub rerun failure" >&2
+      exit 1
+    fi
     ;;
   *)
     case "$*" in
@@ -435,6 +449,22 @@ test_plan_reruns_failed_run() {
   [[ "$(cat "$repo/.stub-log")" == *"RERUN 42"* ]]
 }
 
+test_plan_ignores_closed_pr() {
+  local repo output
+  repo=$(new_repo "$project_pattern")
+  state_present "$repo"
+  output=$(STUB_PR_CLOSED=7 plan_with_stubs "$repo")
+  [[ "$output" == *"no PR yet"* && ! -f "$repo/.stub-log" ]]
+}
+
+test_plan_survives_failed_rerun() {
+  local repo output
+  repo=$(new_repo "$project_pattern")
+  state_present "$repo"
+  output=$(STUB_PR=5 STUB_RUN_FAILED=42 STUB_RERUN_FAIL=1 plan_with_stubs "$repo")
+  [[ "$output" == *"rerun it by hand"* && "$output" == *"exit=0" ]]
+}
+
 test_plan_reports_pending_run() {
   local repo output
   repo=$(new_repo "$project_pattern")
@@ -481,6 +511,31 @@ test_hook_plans_infra_change() {
   head=$(cd "$repo" && git rev-parse HEAD)
   output=$(run_hook "$repo" "refs/heads/develop $head refs/heads/develop $first")
   [[ "$output" == *"terraform not installed"* && "$output" == *"exit=0" ]]
+}
+
+# `git push origin HEAD` sends the literal local ref HEAD
+test_hook_plans_head_refspec() {
+  local repo first head output
+  repo=$(new_repo "$project_pattern")
+  first=$(cd "$repo" && git rev-parse HEAD)
+  printf 'module "n" {}\n' > "$repo/infra/github/main.tf"
+  commit_all "$repo"
+  head=$(cd "$repo" && git rev-parse HEAD)
+  output=$(run_hook "$repo" "HEAD $head refs/heads/develop $first")
+  [[ "$output" == *"terraform not installed"* && "$output" == *"exit=0" ]]
+}
+
+# Pushing the checked-out branch to a different remote branch would post to
+# the wrong PR
+test_hook_skips_renamed_push() {
+  local repo first head output
+  repo=$(new_repo "$project_pattern")
+  first=$(cd "$repo" && git rev-parse HEAD)
+  printf 'module "n" {}\n' > "$repo/infra/github/main.tf"
+  commit_all "$repo"
+  head=$(cd "$repo" && git rev-parse HEAD)
+  output=$(run_hook "$repo" "refs/heads/develop $head refs/heads/other $first")
+  [[ "$output" == *"isn't the checked-out branch"* && "$output" != *"terraform not installed"* ]]
 }
 
 test_hook_skips_unrelated_change() {
