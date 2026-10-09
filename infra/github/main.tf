@@ -19,5 +19,5 @@ module "repository" {
 
   description              = "Terraform module for the standard GitHub repo configuration of todofixthis projects"
   name                     = "terraform-github-repository"
-  renovate_installation_id = "RENOVATE_INSTALLATION_ID"
+  renovate_installation_id = "60701509"
 }
