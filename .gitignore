@@ -1,0 +1,10 @@
+# Agent worktrees
+.claude/worktrees/
+
+# Terraform
+# The module's own lock file isn't committed (modules don't pin providers for
+# their callers); infra/github's is.
+/.terraform.lock.hcl
+.terraform/
+.terraform.tfstate.lock.info
+terraform.tfstate*
