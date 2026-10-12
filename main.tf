@@ -161,9 +161,12 @@ resource "github_repository_ruleset" "tags_release" {
     }
   }
 
+  # Dependents pin the module by tag, so blocking update stops even a
+  # fast-forward move
   rules {
     deletion         = true
     non_fast_forward = true
+    update           = true
   }
 
   depends_on = [github_branch_default.this]

@@ -8,7 +8,7 @@ A Terraform module that creates a GitHub repo with the standard configuration of
 - **Features:** issues on; wiki, projects and discussions off.
 - **Security:** secret scanning and push protection on for public repos; Dependabot alerts on; Dependabot security updates off (Renovate opens update PRs).
 - **Branches:** `develop` is the default. `trunk-develop` and `trunk-main` block deletion and force-pushes, and require a PR with resolved threads and a passing, up-to-date `gate` check. The Admin role can bypass `trunk-develop`; nothing bypasses `trunk-main`.
-- **Tags:** `tags-release` blocks deleting or force-pushing any tag.
+- **Tags:** `tags-release` blocks deleting or moving any tag.
 - **Destroy:** archives the repo rather than deleting it, after removing its rulesets and alert settings and taking it out of Renovate's installation. The archived repo keeps its name, so applying again with the same `name` fails until you unarchive and `terraform import` it.
 
 ## Usage

@@ -161,6 +161,16 @@ run "tags_ruleset_covers_all_tags" {
     )
     error_message = "tags-release must cover every tag with no bypass actor."
   }
+
+  # Dependents pin the module by tag, so no tag may move, even fast-forward
+  assert {
+    condition = (
+      github_repository_ruleset.tags_release.rules[0].deletion
+      && github_repository_ruleset.tags_release.rules[0].non_fast_forward
+      && try(github_repository_ruleset.tags_release.rules[0].update, false) == true
+    )
+    error_message = "tags-release must block deleting, force-pushing and moving tags."
+  }
 }
 
 run "renovate_absent_without_installation_id" {
