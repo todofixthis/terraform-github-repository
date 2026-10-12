@@ -20,12 +20,6 @@ variable "name" {
   type        = string
 }
 
-variable "renovate_installation_id" {
-  default     = null
-  description = "Installation ID of the Renovate GitHub App, or null to leave the repo out of Renovate's installation."
-  type        = string
-}
-
 variable "topics" {
   default     = []
   description = "Repository topics."

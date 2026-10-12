@@ -171,10 +171,3 @@ resource "github_repository_ruleset" "tags_release" {
 
   depends_on = [github_branch_default.this]
 }
-
-resource "github_app_installation_repository" "renovate" {
-  count = var.renovate_installation_id == null ? 0 : 1
-
-  installation_id = var.renovate_installation_id
-  repository      = github_repository.this.name
-}

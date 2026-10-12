@@ -172,25 +172,3 @@ run "tags_ruleset_covers_all_tags" {
     error_message = "tags-release must block deleting, force-pushing and moving tags."
   }
 }
-
-run "renovate_absent_without_installation_id" {
-  command = plan
-
-  assert {
-    condition     = length(github_app_installation_repository.renovate) == 0
-    error_message = "No Renovate installation ID must mean no installation resource."
-  }
-}
-
-run "renovate_present_with_installation_id" {
-  command = plan
-
-  variables {
-    renovate_installation_id = "12345"
-  }
-
-  assert {
-    condition     = length(github_app_installation_repository.renovate) == 1
-    error_message = "A Renovate installation ID must add the repo to that installation."
-  }
-}

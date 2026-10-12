@@ -2,8 +2,8 @@
 status: Accepted
 date: 2026-10-09
 scope: [infra/, main.tf, outputs.tf, variables.tf, versions.tf]
-summary: Provision every todofixthis repo through this versioned module, pinned by tag and updated by Renovate, not through per-template HCL copies or one central repo; the module creates rulesets whatever the visibility and archives on destroy.
-revisit-when: A private repo's apply shows GitHub refusing rulesets. The todofixthis account becomes a GitHub organisation.
+summary: Provision every todofixthis repo through this versioned module, pinned by tag and updated by Renovate, not through per-template HCL copies or one central repo; the module creates rulesets whatever the visibility and archives on destroy, and repos join Renovate's installation by hand, not through the module.
+revisit-when: A private repo's apply shows GitHub refusing rulesets. The todofixthis account becomes a GitHub organisation. Terraform authenticates with a credential GitHub's App installation endpoints accept.
 ---
 
 # 001: Share the GitHub repo standard as a versioned Terraform module
@@ -42,16 +42,18 @@ The standard lives here as a module; each repo's `infra/github/` root calls it b
 
 ## Decision
 
-Option 2. It keeps each project self-describing (its own `infra/github/` and state) while giving the standard one home, and Renovate already runs on every repo involved (on a generated project, once the module adds it to Renovate's installation through `renovate_installation_id`): its [Terraform manager][] recognises `github.com/<owner>/<repo>?ref=<tag>` sources and opens the bump PRs. The plan comment on each bump PR shows what the new version would change on that repo before it's applied. Organisation-level rulesets would replace most of the module, but todofixthis is a personal account.
+Option 2. It keeps each project self-describing (its own `infra/github/` and state) while giving the standard one home, and Renovate already runs on every repo involved (once added to Renovate's installation by hand): its [Terraform manager][] recognises `github.com/<owner>/<repo>?ref=<tag>` sources and opens the bump PRs. The plan comment on each bump PR shows what the new version would change on that repo before it's applied. Organisation-level rulesets would replace most of the module, but todofixthis is a personal account.
 
-Three choices about the module belong with it:
+Four choices about the module belong with it:
 
 - **`archive_on_destroy = true`.** A stray `destroy`, or a module refactor that renames `github_repository.this` without a `moved` block, archives the repo rather than deleting its history. The cost, in the rename case: the archived repo keeps its name, so the same apply's create fails half-done, and recovery is a manual unarchive plus `terraform import`.
 - **Rulesets on private repos.** The maintainer is on GitHub Free, where rulesets on a private repo presumably need Pro. The module creates them whatever the visibility, accepting that they may exist without being enforced; they enforce as soon as the repo goes public. That GitHub accepts them rather than refusing is unverified. Under refusal, a fresh private `apply` stops after the repo is created, pushed and given its default branch. Later plans would propose the rulesets again, so every apply fails; for a repo whose rulesets are already in state (one made private after being public), `plan` may fail at refresh too, and then the plan-comment guard can't pass. The answer then is to create the rulesets for public repos only.
-- **The release App, next iteration.** Terraform can't create GitHub Apps (the provider has no resource for it), so each repo can't own one. The design is one existing shared App, passed in by slug (for the App ID) plus its installation ID: one key to rotate, and one identity in each ruleset's bypass list.
+- **Renovate membership stays manual.** Renovate is installed for selected repos only, so each repo is added to its installation by hand after the first apply. The provider's `github_app_installation_repository` would do it, but GitHub's installation endpoints reject the OAuth token `gh auth token` returns: the read the resource makes on every plan fails, naming the token type (checked 2026-10-12, on a token with `repo` scope). Keeping it in Terraform would mean a PAT (untested) on the maintainer's machine for every plan, including the local plan for each Renovate bump PR.
+- **The release App, next iteration.** Terraform can't create GitHub Apps (the provider has no resource for it), so each repo can't own one. The design is one existing shared App, passed in by slug (for the App ID): one key to rotate, and one identity in each ruleset's bypass list. Adding each repo to that App's installation meets the same token rejection as Renovate, so that part is open: manual like Renovate, or a credential the endpoints accept.
 
 ## Consequences
 
+- A repo left out of Renovate's installation at bootstrap silently never gets module bumps, and nothing flags it, so each template's README must list adding it as a bootstrap step.
 - Module bumps reach generated projects as Renovate PRs, never auto-merged, each held until the maintainer plans it locally ([ADR 003][]).
 - The module owns the provider constraint, so every dependent's `renovate.json` disables major updates for `integrations/github`; a new major arrives only through a module release.
 - A release that moves the `integrations/github` constraint leaves dependents' lock files stale; Renovate doesn't update locks on module bumps. Where the locked version no longer satisfies the constraint, the fix is `terraform init -upgrade` plus `terraform providers lock` for `darwin_amd64`, `darwin_arm64`, `linux_amd64` and `linux_arm64`, on each bump branch; where `init` only rewrote the lock's constraints line, committing that rewrite is enough. Release notes must call out any provider-constraint change.

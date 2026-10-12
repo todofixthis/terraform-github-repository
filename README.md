@@ -9,7 +9,7 @@ A Terraform module that creates a GitHub repo with the standard configuration of
 - **Security:** secret scanning and push protection on for public repos; Dependabot alerts on; Dependabot security updates off (Renovate opens update PRs).
 - **Branches:** `develop` is the default. `trunk-develop` and `trunk-main` block deletion and force-pushes, and require a PR with resolved threads and a passing, up-to-date `gate` check. The Admin role can bypass `trunk-develop`; nothing bypasses `trunk-main`.
 - **Tags:** `tags-release` blocks deleting or moving any tag.
-- **Destroy:** archives the repo rather than deleting it, after removing its rulesets and alert settings and taking it out of Renovate's installation. The archived repo keeps its name, so applying again with the same `name` fails until you unarchive and `terraform import` it.
+- **Destroy:** archives the repo rather than deleting it, after removing its rulesets and alert settings. The archived repo keeps its name, so applying again with the same `name` fails until you unarchive and `terraform import` it.
 
 ## Usage
 
@@ -44,6 +44,8 @@ Before the first apply:
 - **Credentials.** The provider uses `GITHUB_TOKEN`, or `gh auth token` when that's unset. The push uses your own git SSH credentials.
 - **A `gate` job.** Both trunk rulesets require a check named `gate` from GitHub Actions, and nothing bypasses `trunk-main`. Ship a workflow with a job of that name, or nothing can merge into `main`.
 
+After the first apply, if Renovate is installed for selected repositories only, add the new repo at <https://github.com/settings/installations> → Renovate → Configure → Repository access. The module can't do it: GitHub's installation endpoints reject the OAuth token `gh` uses, even for reads, so managing it in Terraform would need a PAT (untested) for every plan.
+
 | Input | Default | Notes |
 |---|---|---|
 | `name` | — | Repository name |
@@ -51,7 +53,6 @@ Before the first apply:
 | `homepage_url` | `null` | |
 | `topics` | `[]` | |
 | `visibility` | `"public"` | `"public"` or `"private"`. Private repos skip secret scanning and push protection. On GitHub Free, a private repo's rulesets may not be enforced. |
-| `renovate_installation_id` | `null` | Adds the repo to that Renovate installation |
 | `local_path` | root module directory | Any path inside the checkout to run `git push` from |
 
 Outputs: `html_url`, `http_clone_url`, `ssh_clone_url`.
