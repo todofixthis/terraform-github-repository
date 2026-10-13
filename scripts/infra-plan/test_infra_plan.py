@@ -530,6 +530,7 @@ def test_plan_reports_pending_ci(make_repo, tools, capsys):
 
 
 def _pre_push(line: str) -> int:
+    """Feeds one line of git's ref list to the pre-push subcommand, as git would."""
     return _main("pre-push", "origin", "url", stdin=line + "\n")
 
 
