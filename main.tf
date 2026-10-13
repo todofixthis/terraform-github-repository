@@ -24,15 +24,16 @@ resource "github_repository" "this" {
   delete_branch_on_merge = true
   description            = var.description
   has_discussions        = false
-  has_issues             = true
-  has_projects           = false
-  has_wiki               = false
-  homepage_url           = var.homepage_url
-  merge_commit_message   = "PR_BODY"
-  merge_commit_title     = "PR_TITLE"
-  name                   = var.name
-  topics                 = var.topics
-  visibility             = var.visibility
+  # Enable even for private repos so that Renovate can post its dependency dashboard.
+  has_issues           = true
+  has_projects         = false
+  has_wiki             = false
+  homepage_url         = var.homepage_url
+  merge_commit_message = "PR_BODY"
+  merge_commit_title   = "PR_TITLE"
+  name                 = var.name
+  topics               = var.topics
+  visibility           = var.visibility
 
   # Keep this exact for_each form. The private-repo test can't see the block's
   # absence at plan time, so it asserts local.enable_security_and_analysis
