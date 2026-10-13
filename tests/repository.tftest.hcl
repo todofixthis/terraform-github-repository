@@ -1,5 +1,5 @@
-# Index lookups go through try() so one regression fails its own run instead
-# erroring and skipping every run after it.
+# Lookups into blocks a regression could remove go through try(), so it fails
+# its own run instead of erroring and skipping every run after it.
 #
 # Plan-only: the mock provider doesn't cover the built-in terraform_data push
 # step, so `command = apply` would really run `git push`.
@@ -10,6 +10,9 @@ variables {
   name        = "test-repository"
 }
 
+# A repo built with the defaults gets the standard settings, so every repo
+# merges the same way: merge commits only, branches deleted on merge, issues as
+# the only feature, and archive on destroy so a stray destroy keeps history
 run "repo_settings_match_the_standard" {
   command = plan
 
@@ -41,6 +44,8 @@ run "repo_settings_match_the_standard" {
   }
 }
 
+# A public repo, the default, turns on secret scanning and push protection, so
+# a leaked credential is caught before or soon after it lands
 run "public_repo_enables_secret_scanning" {
   command = plan
 
@@ -60,6 +65,8 @@ run "public_repo_enables_secret_scanning" {
   }
 }
 
+# A private repo leaves secret scanning out, since it needs GitHub Advanced
+# Security there and the apply would fail
 run "private_repo_omits_secret_scanning" {
   command = plan
 
@@ -73,6 +80,8 @@ run "private_repo_omits_secret_scanning" {
   }
 }
 
+# A visibility other than public or private ("internal" exists only for
+# enterprise organisations) is refused at plan time rather than at the API
 run "visibility_rejects_other_values" {
   command = plan
 
@@ -83,6 +92,8 @@ run "visibility_rejects_other_values" {
   expect_failures = [var.visibility]
 }
 
+# main takes changes only through a PR, even from an admin, so every release
+# arrives as a merge from develop that passed the gate check
 run "trunk_main_has_no_bypass" {
   command = plan
 
@@ -92,6 +103,8 @@ run "trunk_main_has_no_bypass" {
   }
 }
 
+# develop lets the Admin role bypass, which the release back-merge needs, and
+# nobody else
 run "trunk_develop_bypass_is_admin_only" {
   command = plan
 
@@ -110,13 +123,16 @@ run "trunk_develop_bypass_is_admin_only" {
   }
 }
 
+# Both trunk branches target their own ref, require an up-to-date passing gate
+# check from GitHub Actions, and accept merge commits only, so untested or
+# out-of-date code can't land on either and history keeps every merge
 run "trunk_rulesets_require_strict_gate_and_merge_only" {
   command = plan
 
   assert {
     condition = alltrue([
       for branch in ["develop", "main"] :
-      one(github_repository_ruleset.trunk[branch].conditions[0].ref_name[0].include) == "refs/heads/${branch}"
+      try(one(github_repository_ruleset.trunk[branch].conditions[0].ref_name[0].include), null) == "refs/heads/${branch}"
     ])
     error_message = "Each trunk ruleset must target its own branch."
   }
@@ -124,7 +140,7 @@ run "trunk_rulesets_require_strict_gate_and_merge_only" {
   assert {
     condition = alltrue([
       for branch in ["develop", "main"] :
-      github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].strict_required_status_checks_policy
+      try(github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].strict_required_status_checks_policy, false)
     ])
     error_message = "Both trunk rulesets must require branches to be up to date."
   }
@@ -132,9 +148,9 @@ run "trunk_rulesets_require_strict_gate_and_merge_only" {
   assert {
     condition = alltrue([
       for branch in ["develop", "main"] :
-      length(github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].required_check) == 1
+      length(try(github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].required_check, [])) == 1
       && anytrue([
-        for check in github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].required_check :
+        for check in try(github_repository_ruleset.trunk[branch].rules[0].required_status_checks[0].required_check, []) :
         check.context == "gate" && check.integration_id == 15368
       ])
     ])
@@ -144,29 +160,31 @@ run "trunk_rulesets_require_strict_gate_and_merge_only" {
   assert {
     condition = alltrue([
       for branch in ["develop", "main"] :
-      toset(github_repository_ruleset.trunk[branch].rules[0].pull_request[0].allowed_merge_methods) == toset(["merge"])
+      toset(try(github_repository_ruleset.trunk[branch].rules[0].pull_request[0].allowed_merge_methods, [])) == toset(["merge"])
     ])
     error_message = "Both trunk rulesets must allow merge commits only."
   }
 }
 
+# Every tag is protected from deletion, force-pushes and moves, with no bypass,
+# so a release tag keeps pointing at what was released
 run "tags_ruleset_covers_all_tags" {
   command = plan
 
   assert {
     condition = (
       github_repository_ruleset.tags_release.target == "tag"
-      && one(github_repository_ruleset.tags_release.conditions[0].ref_name[0].include) == "~ALL"
+      && try(one(github_repository_ruleset.tags_release.conditions[0].ref_name[0].include), null) == "~ALL"
       && length(github_repository_ruleset.tags_release.bypass_actors) == 0
     )
     error_message = "tags-release must cover every tag with no bypass actor."
   }
 
-  # Dependents pin the module by tag, so no tag may move, even fast-forward
+  # update is the rule that blocks a fast-forward move
   assert {
     condition = (
-      github_repository_ruleset.tags_release.rules[0].deletion
-      && github_repository_ruleset.tags_release.rules[0].non_fast_forward
+      try(github_repository_ruleset.tags_release.rules[0].deletion, false)
+      && try(github_repository_ruleset.tags_release.rules[0].non_fast_forward, false)
       && try(github_repository_ruleset.tags_release.rules[0].update, false) == true
     )
     error_message = "tags-release must block deleting, force-pushing and moving tags."
