@@ -16,7 +16,7 @@ concurrency:
 
 # Log lines are prefixed to be scannable: ✅ done, ❌ failed, ⏭️ skipped, ▶️ starting.
 jobs:
-  # Does this PR change the infra paths? scripts/infra-plan owns that logic.
+  # Does this PR change the infra paths? scripts/infra-plan/infra_plan.py owns that logic.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -27,13 +27,15 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
       - id: filter
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set +e
-          scripts/infra-plan changed "$BASE_SHA" "$HEAD_SHA"
+          uv run --quiet --script scripts/infra-plan/infra_plan.py changed "$BASE_SHA" "$HEAD_SHA"
           status=$?
           set -e
           case "$status" in
@@ -86,17 +88,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The maintainer's Mac runs these under the system bash, 3.2
-      - name: Use the system bash on macOS
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p "$RUNNER_TEMP/system-bash"
-          ln -s /bin/bash "$RUNNER_TEMP/system-bash/bash"
-          echo "$RUNNER_TEMP/system-bash" >> "$GITHUB_PATH"
-          echo "✅ using $(/bin/bash --version | head -n 1)"
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
 
-      - name: Run the script fixture tests
-        run: tests/infra-plan/test.sh
+      # Generated projects lint every committed .py file with black, ruff
+      # (default rules) and strict mypy; anything they'd reformat or reject
+      # would break the templates' byte-identical copy (docs/adr/004)
+      - name: Lint the infra-plan script as generated projects do
+        run: |
+          uvx black --check scripts/infra-plan/infra_plan.py
+          uvx ruff check --isolated scripts/infra-plan/infra_plan.py
+          uvx mypy --strict scripts/infra-plan/infra_plan.py
+
+      - name: Run the infra-plan tests
+        run: uv run --no-project --with pytest pytest scripts/infra-plan
 
   # Passes when the PR holds a plan comment for its current infra hash. Release
   # PRs into main are exempt: infra is applied from develop after merge.
@@ -109,19 +113,21 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
       - name: Look for a plan comment matching the infra hash
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          hash=$(scripts/infra-plan hash)
+          hash=$(uv run --quiet --script scripts/infra-plan/infra_plan.py hash)
           echo "▶️ looking for a plan comment for infra hash $hash"
           found=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             --jq ".[] | select((.author_association == \"OWNER\" or .author_association == \"COLLABORATOR\") and (.body | contains(\"<!-- infra-hash: $hash -->\"))) | .id")
           if [ -n "$found" ]; then
             echo "✅ plan comment found"
           else
-            echo "❌ no plan comment for infra hash $hash; run scripts/infra-plan locally"
+            echo "❌ no plan comment for infra hash $hash; run scripts/infra-plan/infra_plan.py locally"
             exit 1
           fi
 

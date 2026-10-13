@@ -61,8 +61,8 @@ Going from private to public takes two steps, because the provider can't do it i
 
 ## Previewing infra changes
 
-State is local to the maintainer's machine (`infra/github/terraform.tfstate`, gitignored, backed up by hand), so CI can't plan. `scripts/infra-plan` plans on your machine and posts the plan to the branch's PR. On PRs into `develop`, CI's `infra-plan` job fails until a plan comment from an owner or collaborator matches the PR's current infra files.
+State is local to the maintainer's machine (`infra/github/terraform.tfstate`, gitignored, backed up by hand), so CI can't plan. `scripts/infra-plan/infra_plan.py` (needs [uv](https://docs.astral.sh/uv/)) plans on your machine and posts the plan to the branch's PR. On PRs into `develop`, CI's `infra-plan` job fails until a plan comment from an owner or collaborator matches the PR's current infra files.
 
-Run `git config core.hooksPath .githooks` once per clone, and the pre-push hook runs the script whenever a push of the checked-out branch changes the infra files. The script can only post to an existing PR, so on a new branch: push, open the PR, then run `scripts/infra-plan` yourself. For a PR you didn't push (Renovate, a cloud agent), run `gh pr checkout <n>` then `scripts/infra-plan`.
+Run `git config core.hooksPath .githooks` once per clone, and the pre-push hook runs the script whenever a push of the checked-out branch changes the infra files. The script can only post to an existing PR, so on a new branch: push, open the PR, then run `scripts/infra-plan/infra_plan.py` yourself. For a PR you didn't push (Renovate, a cloud agent), run `gh pr checkout <n>` then `scripts/infra-plan/infra_plan.py`.
 
 After an infra PR merges, run `terraform -chdir=infra/github apply` from an up-to-date `develop`.

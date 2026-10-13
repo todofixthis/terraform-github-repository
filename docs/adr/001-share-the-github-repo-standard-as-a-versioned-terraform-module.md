@@ -26,7 +26,7 @@ The standard lives here as a module; each repo's `infra/github/` root calls it b
 
 **Pros:** One reviewed definition; a change is a release, and each dependent repo adopts it through a normal PR that shows its plan.
 **Cons:** A release takes a tag, plus a bump PR in every dependent repo, each needing a local plan.
-**Risks:** A release that moves the provider constraint or changes `scripts/infra-plan` needs hand work in each dependent or template repo (see Consequences).
+**Risks:** A release that moves the provider constraint or changes `scripts/infra-plan/infra_plan.py` needs hand work in each dependent or template repo (see Consequences).
 
 ### Option 3: HCL copied into each template
 
@@ -57,11 +57,11 @@ Four choices about the module belong with it:
 - Module bumps reach generated projects as Renovate PRs, never auto-merged, each held until the maintainer plans it locally ([ADR 003][]).
 - The module owns the provider constraint, so every dependent's `renovate.json` disables major updates for `integrations/github`; a new major arrives only through a module release.
 - A release that moves the `integrations/github` constraint leaves dependents' lock files stale; Renovate doesn't update locks on module bumps. Where the locked version no longer satisfies the constraint, the fix is `terraform init -upgrade` plus `terraform providers lock` for `darwin_amd64`, `darwin_arm64`, `linux_amd64` and `linux_arm64`, on each bump branch; where `init` only rewrote the lock's constraints line, committing that rewrite is enough. Release notes must call out any provider-constraint change.
-- A release that changes [`scripts/infra-plan`][] fails each template repo's byte-identical check until the script is copied across by hand. Generated projects keep their old copy.
+- A release that changes [`scripts/infra-plan/infra_plan.py`][] fails each template repo's byte-identical check until the script is copied across by hand. Generated projects keep their old copy.
 - A dependent's first `apply`, and any that replaces the push step, runs this module's `local-exec` with the maintainer's credentials, fetched by tag. `tags-release` blocks deleting, force-pushing and moving tags (its `update` rule, which `todofixthis/phx-claude-siat` doesn't set), so a `?ref=` pin always fetches what was released; it mustn't be weakened.
 - `require_extra_approval_for_unattributed_changes` can't be set by the provider, so new repos get GitHub's default and drift there goes undetected.
 
 [ADR 003]: 003-gate-infra-prs-on-a-locally-posted-plan-comment.md
-[`scripts/infra-plan`]: ../../scripts/infra-plan
+[`scripts/infra-plan/infra_plan.py`]: ../../scripts/infra-plan/infra_plan.py
 [Terraform manager]: https://docs.renovatebot.com/modules/manager/terraform/
 [`todofixthis/phx-claude-siat`]: https://github.com/todofixthis/phx-claude-siat

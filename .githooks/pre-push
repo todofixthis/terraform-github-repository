@@ -1,49 +1,10 @@
-#!/usr/bin/env bash
-# Runs scripts/infra-plan when a push changes the infra paths. A non-zero exit
-# from it blocks the push.
-set -euo pipefail
-
-repo_root=$(git rev-parse --show-toplevel)
-script="$repo_root/scripts/infra-plan"
-current_branch=$(git symbolic-ref --quiet --short HEAD || true)
-head_sha=$(git rev-parse HEAD)
-needs_plan=""
-
-while read -r local_ref local_sha remote_ref remote_sha; do
-  # Deleting a branch pushes no commits to plan
-  if [[ "$local_sha" =~ ^0+$ ]]; then
-    continue
-  fi
-  # The script plans and hashes HEAD and posts to the checked-out branch's PR,
-  # so it can only speak for a push of HEAD to that branch. Match on the SHA and
-  # remote ref: `git push origin HEAD` sends the literal local ref "HEAD"
-  if [[ "$local_sha" != "$head_sha" || "$remote_ref" != "refs/heads/$current_branch" ]]; then
-    echo "⏭️ $local_ref -> $remote_ref isn't the checked-out branch; skipping its infra plan"
-    continue
-  fi
-  # A new branch has no remote SHA; compare against where it branched from
-  if [[ "$remote_sha" =~ ^0+$ ]]; then
-    base=origin/develop
-  else
-    base=$remote_sha
-  fi
-  set +e
-  "$script" changed "$base" "$local_sha" </dev/null >/dev/null
-  status=$?
-  set -e
-  case "$status" in
-    0)
-      needs_plan=1
-      ;;
-    1)
-      ;;
-    *)
-      echo "❌ couldn't tell whether $local_ref changes the infra paths (exit $status); fetch and retry"
-      exit "$status"
-      ;;
-  esac
-done
-
-if [[ -n "$needs_plan" ]]; then
-  "$script" </dev/null
+#!/bin/sh
+# Hands the push to infra_plan.py, which plans when the push changes the infra
+# paths and blocks it when the plan fails (docs/adr/003, docs/adr/004). Without
+# uv there's no plan to run, so warn and let CI's guard hold the PR, as the
+# script does when terraform is missing
+if ! command -v uv >/dev/null 2>&1; then
+  echo "⚠️ uv not installed; skipping the infra plan"
+  exit 0
 fi
+exec uv run --quiet --script "$(git rev-parse --show-toplevel)/scripts/infra-plan/infra_plan.py" pre-push "$@"

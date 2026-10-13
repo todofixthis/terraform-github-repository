@@ -1,8 +1,8 @@
 ---
 status: Accepted
 date: 2026-10-09
-scope: [.githooks/, .github/workflows/, .infra-paths, AGENTS.md, scripts/, tests/infra-plan/]
-summary: Gate PRs into develop that change infra paths on a plan comment posted by scripts/infra-plan from the maintainer's machine and matched by infra hash, since local state means CI can't plan.
+scope: [.githooks/, .github/workflows/, .infra-paths, AGENTS.md, scripts/]
+summary: Gate PRs into develop that change infra paths on a plan comment posted by the infra-plan script from the maintainer's machine and matched by infra hash, since local state means CI can't plan.
 revisit-when: A second maintainer joins. Per-PR local plans become the bottleneck across dependent repos. Repo config moves to remote state with CI-run plans.
 ---
 
@@ -22,7 +22,7 @@ Infra changes should be reviewed as plans, not only as HCL diffs: a one-line mod
 
 ### Option 2: Plan comment posted locally, checked by CI (Accepted)
 
-[`scripts/infra-plan`][] plans on the maintainer's machine and posts the plan to the PR with an **infra hash**: a hash of the committed files matching `.infra-paths`. CI's `infra-plan` job ([`ci.yml`][]) passes only when a comment from an `OWNER` or `COLLABORATOR` carries the PR's current infra hash.
+[`scripts/infra-plan/infra_plan.py`][] plans on the maintainer's machine and posts the plan to the PR with an **infra hash**: a hash of the committed files matching `.infra-paths`. CI's `infra-plan` job ([`ci.yml`][]) passes only when a comment from an `OWNER` or `COLLABORATOR` carries the PR's current infra hash.
 
 **Pros:** Works with local state and the default `GITHUB_TOKEN`; the plan sits on the PR where review happens.
 **Cons:** Every infra PR needs a step from the maintainer, including ones they didn't push.
@@ -48,15 +48,15 @@ The hash only proves the merged tree was planned because both trunk rulesets set
 
 The hash covers the infra paths only, so a PR that also changes docs or tests doesn't need re-planning on every push. It reads the committed tree, so the comment matches exactly what CI checks out. Release PRs into `main` are exempt: infra is applied from `develop` after merge.
 
-`scripts/infra-plan` is canonical here, and each template repo ships a byte-identical copy. Only `.infra-paths` differs between repos, so the path logic has one implementation, which CI and the hook both call.
+`scripts/infra-plan/infra_plan.py` is canonical here, and each template repo ships a byte-identical copy. Only `.infra-paths` differs between repos, so the path logic has one implementation, which CI and the hook both call.
 
 ## Consequences
 
-- Renovate's module and lock PRs stay red until the maintainer runs `gh pr checkout <n>` then `scripts/infra-plan`. So do the maintainer's own new branches: the hook runs before the PR exists, so the script has nowhere to post until it's run again.
+- Renovate's module and lock PRs stay red until the maintainer runs `gh pr checkout <n>` then `scripts/infra-plan/infra_plan.py`. So do the maintainer's own new branches: the hook runs before the PR exists, so the script has nowhere to post until it's run again.
 - Posting a comment doesn't re-run `pull_request` CI, so the script reruns a failed run for `HEAD` itself and warns when one is still in progress. An `issue_comment` trigger wouldn't help: those runs execute against the default branch, so they can't report `gate` for the PR's head.
 - The hook blocks a push on any plan failure (a plan error, an expired token, a lock rewrite), so `--no-verify` is the routine escape, not only a bypass. Pushes that skip the hook still meet the CI backstop.
 - The `OWNER`/`COLLABORATOR` filter trusts every collaborator; a second maintainer would change who can satisfy the guard.
 
 [`AGENTS.md`]: ../../AGENTS.md
 [`ci.yml`]: ../../.github/workflows/ci.yml
-[`scripts/infra-plan`]: ../../scripts/infra-plan
+[`scripts/infra-plan/infra_plan.py`]: ../../scripts/infra-plan/infra_plan.py

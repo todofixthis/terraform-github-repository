@@ -1,6 +1,10 @@
 # Agent worktrees
 .claude/worktrees/
 
+# Python
+__pycache__/
+.pytest_cache/
+
 # Terraform
 # The module's own lock file isn't committed (modules don't pin providers for
 # their callers); infra/github's is.
