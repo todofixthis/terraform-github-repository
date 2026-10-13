@@ -1,0 +1,10 @@
+#!/bin/sh
+# Hands the push to infra_plan.py, which plans when the push changes the infra
+# paths and blocks it when the plan fails (docs/adr/003, docs/adr/004). Without
+# uv there's no plan to run, so warn and let CI's guard hold the PR, as the
+# script does when terraform is missing
+if ! command -v uv >/dev/null 2>&1; then
+  echo "⚠️ uv not installed; skipping the infra plan"
+  exit 0
+fi
+exec uv run --quiet --script "$(git rev-parse --show-toplevel)/scripts/infra-plan/infra_plan.py" pre-push "$@"
