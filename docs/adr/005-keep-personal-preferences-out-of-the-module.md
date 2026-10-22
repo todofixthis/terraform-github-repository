@@ -1,7 +1,7 @@
 ---
 status: Accepted
 date: 2026-10-22
-scope: [infra/, main.tf, scripts/, variables.tf]
+scope: [README.md, infra/, main.tf, scripts/, variables.tf]
 summary: Keep the module to settings stored on the repo, not a person's own preferences such as watching it; each maintainer watches a new repo by hand, not through a local-exec step or a script.
 revisit-when: The provider gains a resource for a user's repository subscription.
 ---
@@ -29,7 +29,7 @@ The module manages only settings stored on the repo. Watching stays a manual ste
 A `terraform_data` beside the push step, calling the subscription endpoint through `gh api` once per repo, maybe behind a `watch` input defaulting to `true`.
 
 **Pros:** Nothing to remember.
-**Cons:** The repo is watched by whoever applies, not by whoever wants to watch it. Every apply needs `gh` with the `notifications` scope, or the first apply fails partway. The step only writes, so an unwatch in the UI is neither noticed nor restored.
+**Cons:** The repo is watched by whoever applies, not by whoever wants to watch it. Each repo's first apply needs `gh` with the `notifications` scope, or fails partway. The step only writes, so an unwatch in the UI is neither noticed nor restored.
 **Risks:** The module starts carrying one person's preferences, and the next (starring, notification levels) has a precedent.
 
 ### Option 3: A script that watches every repo
