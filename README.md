@@ -44,7 +44,10 @@ Before the first apply:
 - **Credentials.** The provider uses `GITHUB_TOKEN`, or `gh auth token` when that's unset. The push uses your own git SSH credentials.
 - **A `gate` job.** Both trunk rulesets require a check named `gate` from GitHub Actions, and nothing bypasses `trunk-main`. Ship a workflow with a job of that name, or nothing can merge into `main`.
 
-After the first apply, if Renovate is installed for selected repositories only, add the new repo at <https://github.com/settings/installations> → Renovate → Configure → Repository access. The module can't do it: GitHub's installation endpoints reject the OAuth token `gh` uses, even for reads, so managing it in Terraform would need a PAT (untested) for every plan.
+After the first apply:
+
+- **Renovate.** If Renovate is installed for selected repositories only, add the new repo at <https://github.com/settings/installations> → Renovate → Configure → Repository access. The module can't do it: GitHub's installation endpoints reject the OAuth token `gh` uses, even for reads, so managing it in Terraform would need a PAT (untested) for every plan.
+- **Watching.** Unless the new repo already shows as watched, click Watch → All Activity on it. The module leaves this out by design: a watch belongs to a person, not the repo ([ADR 005](docs/adr/005-keep-personal-preferences-out-of-the-module.md)).
 
 | Input | Default | Notes |
 |---|---|---|
