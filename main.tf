@@ -81,9 +81,11 @@ resource "github_repository_dependabot_security_updates" "this" {
   depends_on = [github_repository_vulnerability_alerts.this]
 }
 
-# Gives the new repo its first commits by pushing the local develop and main
-# branches: the default branch and the rulesets below need both to exist. Runs
-# once per repo: it's replaced only when the repo is.
+# Gives the repo its develop and main branches by pushing the local ones: the
+# default branch and the rulesets below need both to exist. Pushes only the
+# branches the remote lacks, so adopting an existing repo never sends local
+# commits to a trunk branch unreviewed (ADR 006). Runs once per repo: it's
+# replaced only when the repo is.
 resource "terraform_data" "push" {
   triggers_replace = [github_repository.this.repo_id]
 
@@ -93,9 +95,18 @@ resource "terraform_data" "push" {
       # Only adds origin when there's none: an existing one may be a remote the
       # maintainer set up on purpose, so it's never replaced
       git remote get-url origin >/dev/null 2>&1 || git remote add origin "$SSH_URL"
+      # Fails the apply if the remote can't be read, rather than guessing
+      remote_heads=$(git ls-remote --heads origin)
+      missing=""
+      for branch in develop main; do
+        # Exact match: ls-remote's own patterns also match on a ref's tail
+        printf '%s\n' "$remote_heads" | cut -f2 | grep -qxF "refs/heads/$branch" || missing="$missing $branch"
+      done
       # --no-verify: the checkout's own pre-push hook would otherwise run a plan
       # against the state this apply is holding
-      git push --no-verify origin develop main
+      if [ -n "$missing" ]; then
+        git push --no-verify origin $missing
+      fi
     EOT
     environment = {
       SSH_URL = github_repository.this.ssh_clone_url
