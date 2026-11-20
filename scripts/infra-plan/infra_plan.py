@@ -10,9 +10,10 @@ plans there and posts the plan as a PR comment keyed by the infra hash, and
 CI's infra-plan job passes only when that comment matches the PR's committed
 infra files (docs/adr/003).
 
-Canonical copy: todofixthis/terraform-github-repository. Template repos ship
-it byte-identical at the tag they pin; only .infra-paths differs between
-repos. Standard library only, so it needs nothing beyond `uv run --script`.
+Canonical copy: todofixthis/terraform-github-repository. Template repos are
+to ship it byte-identical at the tag they pin, with only .infra-paths
+differing between repos. Standard library only, so it needs nothing beyond
+`uv run --script`.
 
 Usage:
     infra_plan.py                     plan, then post to the PR
