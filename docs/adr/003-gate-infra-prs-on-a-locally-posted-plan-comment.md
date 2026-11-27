@@ -1,9 +1,10 @@
 ---
-status: Accepted
+status: Superseded
 date: 2026-10-09
 scope: [.githooks/, .github/workflows/, .infra-paths, AGENTS.md, scripts/]
 summary: Gate PRs into develop that change infra paths on a plan comment posted by the infra-plan script from the maintainer's machine and matched by infra hash, since local state means CI can't plan.
 revisit-when: A second maintainer joins. Per-PR local plans become the bottleneck across dependent repos. Repo config moves to remote state with CI-run plans.
+superseded-by: 7
 ---
 
 # 003: Gate infra PRs on a locally posted plan comment

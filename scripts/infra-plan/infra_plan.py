@@ -8,11 +8,10 @@
 State is local to the maintainer's machine, so CI can't plan. This script
 plans there and posts the plan as a PR comment keyed by the infra hash, and
 CI's infra-plan job passes only when that comment matches the PR's committed
-infra files (docs/adr/003).
+infra files (docs/adr/007).
 
-Canonical copy: todofixthis/terraform-github-repository. Template repos are
-to ship it byte-identical at the tag they pin, with only .infra-paths
-differing between repos. Standard library only, so it needs nothing beyond
+It gates this repo's own infra PRs alone: generated projects plan by hand
+(docs/adr/007). Standard library only, so it needs nothing beyond
 `uv run --script`.
 
 Usage:
@@ -372,7 +371,7 @@ def post_comment(plan: str, pattern: re.Pattern[bytes]) -> None:
 def plan_mode(pattern: re.Pattern[bytes]) -> int:
     """Plans the infra root and posts the plan, or explains why it can't.
 
-    Handles each situation ADR 003's guard can meet: no terraform (warn and
+    Handles each situation ADR 007's guard can meet: no terraform (warn and
     pass, so a push isn't blocked), no state (validate only), a failed init,
     init rewriting the lock, and a dirty tree (plan in full but don't post,
     since the plan wouldn't match the committed hash).
