@@ -90,10 +90,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
 
-      # Generated projects lint every committed .py file with black, ruff
-      # (default rules) and strict mypy; anything they'd reformat or reject
-      # would break the templates' byte-identical copy (docs/adr/004)
-      - name: Lint the infra-plan script as generated projects do
+      # Holds the script to the black, ruff (default rules) and strict mypy
+      # standard the todofixthis Python projects use (docs/adr/004)
+      - name: Lint the infra-plan script
         run: |
           uvx black --check scripts/infra-plan/infra_plan.py
           uvx ruff check --isolated scripts/infra-plan/infra_plan.py
