@@ -36,7 +36,9 @@ scripts/infra-plan/infra_plan.py
 
 ## Module rules
 
-- Create the rulesets whatever the visibility, and keep `archive_on_destroy = true` (ADR 001).
+- Create the rulesets for public repos only, and keep `archive_on_destroy = true` (ADR 008).
+- Gate every ruleset on `local.enable_rulesets`, and add it to the `private_repo_omits_rulesets` and `public_repo_gets_every_ruleset` test runs.
+- Keep every `moved` block, since a dependent may skip releases, and add one whenever a resource's address changes.
 - Keep the `security_and_analysis` block's `for_each` exactly `local.enable_security_and_analysis ? [1] : []`; the tests rely on it.
 - `terraform test` runs must stay `command = plan`: the push step is built in and unmocked.
 
@@ -62,7 +64,7 @@ Never put secrets in Terraform: no `sensitive` inputs, no `*_secret` resources (
 
 ## Releases
 
-Before opening the release PR, bump the `?ref=` in `README.md`'s usage example to the new tag through an ordinary PR into `develop`. Then open the release PR from `develop` into `main` and leave the merge to the maintainer. Once it merges, tag `vX.Y.Z` (annotated) on `main`, then merge `origin/main` back into `develop`. Never move or delete a published tag: dependents fetch modules by tag, so a moved tag changes their next `init` without a bump PR or a plan. That back-merge (fast-forward when it can) is pushed with the Admin bypass, so hand that push to the maintainer unless they've asked you to make it. Publish a GitHub release for the tag, with notes drafted by the `phx:writing-release-notes` skill. The notes call out any provider-constraint change (dependents need a lock update). Once the release is published, point the maintainer to `README.md`'s "Rolling out a release": every dependent's bump is planned and applied from their machine, so never merge or apply one yourself.
+Before opening the release PR, bump the `?ref=` in `README.md`'s usage example to the new tag through an ordinary PR into `develop`. Then open the release PR from `develop` into `main` and leave the merge to the maintainer. Once it merges, tag `vX.Y.Z` (annotated) on `main`, then merge `origin/main` back into `develop`. Never move or delete a published tag: dependents fetch modules by tag, so a moved tag changes their next `init` without a bump PR or a plan. That back-merge (fast-forward when it can) is pushed with the Admin bypass, so hand that push to the maintainer unless they've asked you to make it. Publish a GitHub release for the tag, with notes drafted by the `phx:writing-release-notes` skill. The notes call out any provider-constraint change (dependents need a lock update), any address a `moved` block shifts, and any change to what a visibility gets. Once the release is published, point the maintainer to `README.md`'s "Rolling out a release": every dependent's bump is planned and applied from their machine, so never merge or apply one yourself.
 
 ## Code Comments
 

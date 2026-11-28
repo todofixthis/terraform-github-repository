@@ -1,6 +1,9 @@
 locals {
   # GitHub's numeric ID for the Admin repository role, used as a ruleset bypass actor
   admin_repository_role_id = 5
+  # GitHub Free refuses rulesets on a private repo, even reads, so a private
+  # repo gets none until it goes public (ADR 008)
+  enable_rulesets = var.visibility == "public"
   # Secret scanning and push protection need GitHub Advanced Security on a private repo
   enable_security_and_analysis = var.visibility == "public"
   # The GitHub Actions app, which reports the `gate` check
@@ -130,9 +133,9 @@ resource "github_branch_default" "this" {
 # gate check with review threads resolved, so untested code can't land on
 # either. Only develop lets admins bypass, for the release back-merge. Created
 # after the push: trunk-main has no bypass, so it would block the push that
-# creates main
+# creates main. Public repos only (ADR 008)
 resource "github_repository_ruleset" "trunk" {
-  for_each = local.trunk_branches
+  for_each = local.enable_rulesets ? local.trunk_branches : toset([])
 
   enforcement = "active"
   name        = "trunk-${each.key}"
@@ -185,8 +188,11 @@ resource "github_repository_ruleset" "trunk" {
 
 # Keeps each release tag pointing at what was released, for anyone who fetched
 # or pinned it. For this module's own repo that matters most: dependents pin it
-# by tag, so a moved tag would change what their next init fetches
+# by tag, so a moved tag would change what their next init fetches. Public
+# repos only (ADR 008)
 resource "github_repository_ruleset" "tags_release" {
+  count = local.enable_rulesets ? 1 : 0
+
   enforcement = "active"
   name        = "tags-release"
   repository  = github_repository.this.name
@@ -210,4 +216,12 @@ resource "github_repository_ruleset" "tags_release" {
   # Tag rules don't touch branches, so the push doesn't need this ordering; it
   # keeps all three rulesets landing together, after the repo has its branches
   depends_on = [github_branch_default.this]
+}
+
+# tags_release gained its count in v1.2.0 (ADR 008), so a dependent's existing
+# tag ruleset moves to instance 0. Terraform would make this move implicitly;
+# the block records it, so a later refactor of the address sees what it follows
+moved {
+  from = github_repository_ruleset.tags_release
+  to   = github_repository_ruleset.tags_release[0]
 }

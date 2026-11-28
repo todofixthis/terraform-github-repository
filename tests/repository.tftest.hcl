@@ -80,6 +80,31 @@ run "private_repo_omits_secret_scanning" {
   }
 }
 
+# A private repo gets no rulesets, since GitHub Free refuses them there and
+# the apply would fail (ADR 008)
+run "private_repo_omits_rulesets" {
+  command = plan
+
+  variables {
+    visibility = "private"
+  }
+
+  assert {
+    condition     = length(github_repository_ruleset.trunk) == 0 && length(github_repository_ruleset.tags_release) == 0
+    error_message = "A private repo must get no rulesets."
+  }
+}
+
+# A public repo, the default, gets both trunk rulesets and the tag ruleset
+run "public_repo_gets_every_ruleset" {
+  command = plan
+
+  assert {
+    condition     = toset(keys(github_repository_ruleset.trunk)) == toset(["develop", "main"]) && length(github_repository_ruleset.tags_release) == 1
+    error_message = "A public repo must get trunk-develop, trunk-main and tags-release."
+  }
+}
+
 # A visibility other than public or private ("internal" exists only for
 # enterprise organisations) is refused at plan time rather than at the API
 run "visibility_rejects_other_values" {
@@ -173,9 +198,9 @@ run "tags_ruleset_covers_all_tags" {
 
   assert {
     condition = (
-      github_repository_ruleset.tags_release.target == "tag"
-      && try(one(github_repository_ruleset.tags_release.conditions[0].ref_name[0].include), null) == "~ALL"
-      && length(github_repository_ruleset.tags_release.bypass_actors) == 0
+      github_repository_ruleset.tags_release[0].target == "tag"
+      && try(one(github_repository_ruleset.tags_release[0].conditions[0].ref_name[0].include), null) == "~ALL"
+      && length(github_repository_ruleset.tags_release[0].bypass_actors) == 0
     )
     error_message = "tags-release must cover every tag with no bypass actor."
   }
@@ -183,9 +208,9 @@ run "tags_ruleset_covers_all_tags" {
   # update is the rule that blocks a fast-forward move
   assert {
     condition = (
-      try(github_repository_ruleset.tags_release.rules[0].deletion, false)
-      && try(github_repository_ruleset.tags_release.rules[0].non_fast_forward, false)
-      && try(github_repository_ruleset.tags_release.rules[0].update, false) == true
+      try(github_repository_ruleset.tags_release[0].rules[0].deletion, false)
+      && try(github_repository_ruleset.tags_release[0].rules[0].non_fast_forward, false)
+      && try(github_repository_ruleset.tags_release[0].rules[0].update, false) == true
     )
     error_message = "tags-release must block deleting, force-pushing and moving tags."
   }
