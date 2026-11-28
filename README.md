@@ -1,6 +1,6 @@
 # terraform-github-repository
 
-A Terraform module that creates a GitHub repo with the standard configuration of todofixthis projects, pushes its first commits, and applies its branch and tag rulesets. It can also adopt an existing repo (see [Adopting an existing repo](#adopting-an-existing-repo)).
+A Terraform module that creates a GitHub repo with the standard configuration of todofixthis projects, pushes its first commits, and applies its branch and tag rulesets (public repos only). It can also adopt an existing repo (see [Adopting an existing repo](#adopting-an-existing-repo)).
 
 ## What it configures
 
@@ -9,6 +9,7 @@ A Terraform module that creates a GitHub repo with the standard configuration of
 - **Security:** secret scanning and push protection on for public repos; Dependabot alerts on; Dependabot security updates off (Renovate opens update PRs).
 - **Branches:** `develop` is the default. `trunk-develop` and `trunk-main` block deletion and force-pushes, and require a PR with resolved threads and a passing, up-to-date `gate` check. The Admin role can bypass `trunk-develop`; nothing bypasses `trunk-main`.
 - **Tags:** `tags-release` blocks deleting or moving any tag.
+- **Private repos:** from v1.2.0, no rulesets, since GitHub Free refuses them on a private repo, even reads ([ADR 008](docs/adr/008-share-the-github-repo-standard-as-a-versioned-module-with-rulesets-on-public-repos-only.md)). The first apply after it goes public creates them, so its `gate` job (see [Usage](#usage)) must exist by then.
 - **Destroy:** archives the repo rather than deleting it, after removing its rulesets and alert settings. The archived repo keeps its name, so applying again with the same `name` fails until you unarchive and `terraform import` it.
 
 ## Usage
@@ -55,16 +56,16 @@ After the first apply:
 | `description` | — | Repository description |
 | `homepage_url` | `null` | |
 | `topics` | `[]` | |
-| `visibility` | `"public"` | `"public"` or `"private"`. Private repos skip secret scanning and push protection. On GitHub Free, a private repo's rulesets may not be enforced. |
+| `visibility` | `"public"` | `"public"` or `"private"`. Private repos skip the rulesets, secret scanning and push protection. |
 | `local_path` | root module directory | Any path inside the checkout to run `git push` from |
 
 Outputs: `html_url`, `http_clone_url`, `ssh_clone_url`.
 
-Going from private to public takes two steps, because the provider can't do it in one apply: run `gh repo edit <owner>/<name> --visibility public --accept-visibility-change-consequences`, then set `visibility = "public"` (or remove it) and plan and apply. Leave it `"private"` and the plan flips the repo back.
+Going from private to public takes two steps, because the provider can't do it in one apply: run `gh repo edit <owner>/<name> --visibility public --accept-visibility-change-consequences`, then, straight away, set `visibility = "public"` (or remove it) and plan and apply, which also creates the rulesets. Until then the repo is public with no rulesets or secret scanning. Leave it `"private"` and the plan flips the repo back. Going from public to private takes one apply: set `visibility = "private"`, and the plan deletes the rulesets before it changes the visibility. Never make a managed repo private with `gh repo edit` or the UI: GitHub then refuses even reads of its rulesets, so every plan fails until the repo is public again.
 
 ## Adopting an existing repo
 
-To bring a repo that already exists under the module, import its settings rather than creating them ([ADR 006](docs/adr/006-adopt-existing-repos-by-import-pushing-only-missing-branches.md)). The checklists under [Usage](#usage) still apply: in particular, the repo's CI needs a job named `gate`, or nothing can merge once the rulesets apply.
+To bring a repo that already exists under the module, import its settings rather than creating them ([ADR 006](docs/adr/006-adopt-existing-repos-by-import-pushing-only-missing-branches.md)). Adopt public repos only. A private repo would gain no rulesets, and the steps below list and import them. The todofixthis private repos stay configured by hand: they use `main` alone and take direct pushes there, which a `develop` default branch would break ([ADR 008](docs/adr/008-share-the-github-repo-standard-as-a-versioned-module-with-rulesets-on-public-repos-only.md)). The checklists under [Usage](#usage) still apply: in particular, the repo's CI needs a job named `gate`, or nothing can merge once the rulesets apply.
 
 1. **Sync the trunk branches.** Fetch, and make sure local `develop` and `main` exist. The push step pushes only the branches the remote lacks, so for a `main`-only repo, local `develop` becomes the remote's: branch it from an up-to-date `main`. If a hand-made ruleset there already covers `develop` without a bypass, it blocks that push and the apply fails, so narrow it to `main` first.
 2. **List the repo's rulesets:** `gh api repos/<owner>/<name>/rulesets -q '.[] | "\(.id) \(.name) \(.target)"'`.
@@ -102,14 +103,15 @@ To bring a repo that already exists under the module, import its settings rather
      to = module.repository.github_repository_ruleset.trunk["main"]
    }
 
-   # Only where the repo already has a tag ruleset
+   # Only where the repo already has a tag ruleset. Before v1.2.0 the address
+   # has no [0]
    import {
      id = "my-project:12345680"
-     to = module.repository.github_repository_ruleset.tags_release
+     to = module.repository.github_repository_ruleset.tags_release[0]
    }
    ```
 
-4. **Set the module's inputs to match the repo.** `visibility` defaults to `"public"`, so a private repo needs `visibility = "private"`. Set `description`, `homepage_url` and `topics` to the repo's current values too, unless you mean to change them: the plan overwrites them with the inputs.
+4. **Set the module's inputs to match the repo.** `visibility` defaults to `"public"`, which suits the public repos adoption is for. Set `description`, `homepage_url` and `topics` to the repo's current values, unless you mean to change them: the plan overwrites them with the inputs.
 5. **Plan.** Each import shows beside the changes it makes. Read the `github_repository` diff as closely as the rulesets: an unintended visibility or description change there is an ordinary update. Apart from the new push step, nothing should be created except module rulesets you didn't import, and anything replaced or destroyed means stop and check before applying.
 6. **Apply, and delete any ruleset left over.** A hand-made ruleset you didn't import still applies alongside the module's.
 
@@ -136,7 +138,7 @@ Every repo using the module keeps its state on the maintainer's machine, and its
    terraform -chdir=infra/github plan
    ```
 
-   Check the plan against the release notes. If `init` rewrote `.terraform.lock.hcl`, commit it to the PR. Merge, then apply from an up-to-date `develop`:
+   Check the plan against the release notes, which list any address a `moved` block shifts. A plan that fails on an `import` address means the project kept its `imports.tf` after adopting: remove it on the same PR. If `init` rewrote `.terraform.lock.hcl`, commit it to the PR. Merge, then apply from an up-to-date `develop`:
 
    ```bash
    git checkout develop && git pull --ff-only

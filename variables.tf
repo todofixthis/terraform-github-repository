@@ -28,7 +28,7 @@ variable "topics" {
 
 variable "visibility" {
   default     = "public"
-  description = "Repository visibility: public or private. Lets a project start private; private also omits secret scanning and push protection, which need GitHub Advanced Security there."
+  description = "Repository visibility: public or private. Lets a project start private, getting its rulesets in the first apply after it goes public; a private repo omits the rulesets, which GitHub Free refuses there (ADR 008), and secret scanning and push protection, which need GitHub Advanced Security."
   type        = string
 
   validation {

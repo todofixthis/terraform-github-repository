@@ -1,9 +1,10 @@
 ---
-status: Accepted
+status: Superseded
 date: 2026-10-09
 scope: [infra/, main.tf, outputs.tf, variables.tf, versions.tf]
 summary: Provision every todofixthis repo through this versioned module, pinned by tag and updated by Renovate, not through per-template HCL copies or one central repo; the module creates rulesets whatever the visibility and archives on destroy, and repos join Renovate's installation by hand, not through the module.
 revisit-when: A private repo's apply shows GitHub refusing rulesets. The todofixthis account becomes a GitHub organisation. Terraform authenticates with a credential GitHub's App installation endpoints accept.
+superseded-by: 8
 ---
 
 # 001: Share the GitHub repo standard as a versioned Terraform module
