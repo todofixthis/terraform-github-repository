@@ -29,7 +29,7 @@ provider "github" {
 }
 
 module "repository" {
-  source = "github.com/todofixthis/terraform-github-repository?ref=v1.1.0"
+  source = "github.com/todofixthis/terraform-github-repository?ref=v1.2.0"
 
   description = "A short description of the project"
   name        = "my-project"
